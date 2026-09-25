@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de Aventuras FAI</title>
+<style>
+  :root {
+    --bg: #1a1a1e;
+    --card: #24242b;
+    --border: #3a3a45;
+    --text: #e8e6e3;
+    --muted: #9a9690;
+    --accent: #c9a227;
+    --accent-dim: #8a7020;
+    --danger: #a33;
+    --ok: #3a7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+    padding: 1.5rem;
+  }
+  .container { max-width: 820px; margin: 0 auto; }
+  header {
+    text-align: center;
+    margin-bottom: 1.75rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 {
+    font-size: 1.75rem;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+    margin-bottom: 0.25rem;
+  }
+  header p { color: var(--muted); font-size: 0.95rem; }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+  button {
+    background: var(--accent);
+    color: #111;
+    border: none;
+    padding: 0.7rem 1.4rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    /* iOS Safari: evita retraso 300ms y mejora respuesta táctil */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-appearance: none;
+    appearance: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  button:hover { background: #e0b82e; }
+  button:active { transform: scale(0.97); }
+  button.secondary {
+    /* iOS Safari no trata bien background:transparent en hit-testing */
+    background: rgba(201, 162, 39, 0.08);
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+  }
+  button.secondary:hover { background: rgba(201,162,39,0.18); }
+  button.secondary:active { background: rgba(201,162,39,0.25); }
+  .rule-select-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .rule-select-wrap label {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  select#ruleSelect {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.55rem 0.8rem;
+    font-size: 0.9rem;
+    min-width: 260px;
+    max-width: 100%;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  select#ruleSelect:focus {
+    outline: 1px solid var(--accent);
+    border-color: var(--accent);
+  }
+  .mission-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+  }
+  .mission-title {
+    text-align: center;
+    font-size: 1.25rem;
+    color: var(--accent);
+    margin-bottom: 1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section { margin-bottom: 1.1rem; }
+  .section-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin-bottom: 0.3rem;
+    font-weight: 600;
+  }
+  .section p, .section div {
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+  .prep-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.4rem 1rem;
+    font-size: 0.88rem;
+  }
+  .prep-grid span { color: var(--muted); }
+  .rules-box {
+    background: rgba(0,0,0,0.25);
+    border-left: 3px solid var(--accent-dim);
+    padding: 0.7rem 0.9rem;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    border-radius: 0 6px 6px 0;
+  }
+  .extra-rule {
+    margin-bottom: 0.55rem;
+  }
+  .extra-rule:last-child { margin-bottom: 0; }
+  .extra-rule strong {
+    color: var(--accent);
+    font-size: 0.88rem;
+  }
+  .empty-state {
+    text-align: center;
+    color: var(--muted);
+    padding: 3rem 1rem;
+  }
+  .footer-note {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 1rem;
+  }
+  .badge {
+    display: inline-block;
+    background: var(--accent-dim);
+    color: #111;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+  }
+
+  /* Modal reglas extras */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    max-width: 520px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-header h2 {
+    font-size: 1.1rem;
+    color: var(--accent);
+    margin: 0;
+  }
+  .modal-close {
+    background: rgba(0,0,0,0.01);
+    border: none;
+    color: var(--muted);
+    font-size: 1.4rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0.2rem 0.4rem;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { padding: 1rem 1.25rem 1.25rem; }
+  .modal-section { margin-bottom: 1.25rem; }
+  .modal-section h3 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    margin-bottom: 0.6rem;
+  }
+  .extra-check-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-height: 240px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.2);
+    border-radius: 6px;
+    padding: 0.6rem 0.75rem;
+  }
+  .extra-check-list label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.88rem;
+    cursor: pointer;
+    line-height: 1.35;
+  }
+  .extra-check-list input[type="checkbox"] {
+    margin-top: 0.2rem;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+  }
+  .prob-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+  }
+  .prob-row label {
+    font-size: 0.88rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .prob-row input[type="number"] {
+    width: 4.2rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.9rem;
+  }
+  .prob-hint {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 0.45rem;
+  }
+  .modal-footer {
+    display: flex;
+    gap: 0.6rem;
+    justify-content: flex-end;
+    padding: 0.85rem 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+  .modal-footer button {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 600px) {
+    body { padding: 1rem; }
+    .mission-card { padding: 1.1rem; }
+    header h1 { font-size: 1.4rem; }
+  }
+
+  /* ========== IMPRESIÓN / PDF: solo la aventura, un solo folio ========== */
+  @media print {
+    @page {
+      size: A4;
+      margin: 10mm 12mm;
+    }
+    html, body {
+      background: #fff !important;
+      color: #000 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      height: auto !important;
+      min-height: 0 !important;
+      overflow: visible !important;
+      font-size: 9pt !important;
+      line-height: 1.28 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    header,
+    .controls,
+    .footer-note,
+    .empty-state,
+    button,
+    .modal-overlay {
+      display: none !important;
+      height: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+    }
+    .container {
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      height: auto !important;
+    }
+    #output {
+      margin: 0 !important;
+      padding: 0 !important;
+      height: auto !important;
+    }
+    .mission-card {
+      background: #fff !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      height: auto !important;
+      page-break-after: avoid;
+      break-after: avoid;
+      page-break-inside: auto;
+      break-inside: auto;
+    }
+    .mission-title {
+      color: #000 !important;
+      font-size: 12pt !important;
+      font-weight: 700;
+      margin-bottom: 4pt !important;
+      padding-bottom: 3pt !important;
+      border-bottom: 1pt solid #333 !important;
+    }
+    .section {
+      margin-bottom: 5pt !important;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .section:last-child {
+      margin-bottom: 0 !important;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+    .section-label {
+      color: #000 !important;
+      font-size: 7.5pt !important;
+      margin-bottom: 1.5pt !important;
+      letter-spacing: 0.05em;
+    }
+    .section p,
+    .section div {
+      color: #000 !important;
+      font-size: 8.5pt !important;
+      line-height: 1.28 !important;
+    }
+    .prep-grid {
+      font-size: 8pt !important;
+      gap: 1pt 8pt !important;
+    }
+    .prep-grid span {
+      color: #444 !important;
+    }
+    .rules-box {
+      background: #f5f5f5 !important;
+      border-left: 2pt solid #333 !important;
+      padding: 3pt 5pt !important;
+      font-size: 7.5pt !important;
+      line-height: 1.25 !important;
+      white-space: pre-wrap;
+      border-radius: 0 !important;
+    }
+    .extra-rule strong {
+      color: #000 !important;
+    }
+    .badge {
+      background: #ddd !important;
+      color: #000 !important;
+      border: 0.5pt solid #666;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Generador de Aventuras FAI</h1>
+  </header>
+
+  <div class="controls">
+    <div class="rule-select-wrap">
+      <label for="ruleSelect">Regla especial:</label>
+      <select id="ruleSelect">
+        <option value="random" selected>Aleatoria (tirada de dados)</option>
+        <option value="0">0 — Matar al Jefe Final</option>
+        <option value="1">1 — Objeto almacenado (Librerías)</option>
+        <option value="2">2 — Objeto en lugar mágico (Mesa de Hechicero)</option>
+        <option value="3">3 — Objeto perdido (Armería)</option>
+        <option value="4">4 — Objeto perdido (Armarios)</option>
+        <option value="5">5 — Objeto perdido (Tesoros marcados)</option>
+        <option value="6">6 — Objeto en manos del Jefe Final</option>
+        <option value="7">7 — Objeto custodiado (Cofre en Sala Especial)</option>
+        <option value="8">8 — Salvar a un prisionero</option>
+        <option value="9">9 — Encontrar a alguien perdido</option>
+        <option value="10">10 — Rescatar a alguien torturado</option>
+        <option value="11">11 — Salvar de un sacrificio</option>
+        <option value="12">12 — Encontrar explorador + objeto</option>
+        <option value="13">13 — Objeto para salvar una vida</option>
+        <option value="14">14 — Ayudar a un PNJ (compañero)</option>
+      </select>
+    </div>
+    <button type="button" id="btnGenerate">⚔ Generar nueva misión</button>
+    <button type="button" class="secondary" id="btnExtras">Reglas extras…</button>
+    <button type="button" class="secondary" id="btnCopy">Copiar texto</button>
+    <button type="button" class="secondary" id="btnPrint">Imprimir / PDF</button>
+  </div>
+
+  <div id="output">
+    <div class="empty-state">Pulsa el botón para generar una aventura lista para jugar.</div>
+  </div>
+
+  <p class="footer-note">Basado en las reglas del Generador de Aventuras FAI · Autoría original: Ryback · Variantes de intro/epílogo/títulos ampliadas · Reglas extras configurables</p>
+</div>
+
+<!-- Modal configuración reglas extras -->
+<div class="modal-overlay" id="extrasModal" role="dialog" aria-modal="true" aria-labelledby="extrasModalTitle">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="extrasModalTitle">Configurar reglas extras</h2>
+      <button type="button" class="modal-close" id="btnCloseExtras" aria-label="Cerrar">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3>Reglas disponibles</h3>
+        <div class="extra-check-list" id="extraCheckList"></div>
+      </div>
+      <div class="modal-section">
+        <h3>Probabilidades al generar</h3>
+        <div class="prob-row">
+          <label>% una regla extra <input type="number" id="probOne" min="0" max="100" step="1" value="50"></label>
+          <label>% dos reglas extras <input type="number" id="probTwo" min="0" max="100" step="1" value="10"></label>
+        </div>
+        <p class="prob-hint" id="probHint">El resto (40 %) será ninguna regla extra. Si la suma supera 100 %, se normalizará.</p>
+      </div>
+      <p class="prob-hint" style="margin-top:0.75rem;margin-bottom:0;border-top:1px solid var(--border);padding-top:0.75rem">
+        Los cambios en la preparación de la misión se aplicarán automáticamente.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="secondary" id="btnExtrasSelectAll">Marcar todas</button>
+      <button type="button" class="secondary" id="btnExtrasSelectNone">Desmarcar todas</button>
+      <button type="button" id="btnSaveExtras">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   DATOS DEL GENERADOR
+   ============================================================ */
+const FACTIONS = {
+  1: {
+    name: 'No muertos',
+    errante: 'Zombi',
+    erranteSup: 'Momia',
+    jefes: {
+      1: 'Vampiro', 2: 'Vampiro',
+      3: 'Tumulario', 4: 'Tumulario',
+      5: 'Bestia de Cieno', 6: 'Bestia de Cieno'
+    }
+  },
+  2: {
+    name: 'Pieles-Verdes',
+    errante: 'Orco',
+    erranteSup: 'Fimir',
+    jefes: {
+      1: 'Gran Jefe Orco', 2: 'Gran Jefe Orco',
+      3: 'Troll', 4: 'Troll',
+      5: 'Campeón Ogro', 6: 'Campeón Ogro'
+    }
+  },
+  3: {
+    name: 'Agentes del Caos',
+    errante: 'Cultista/Orco',
+    erranteSup: 'H. Bestia/Fimir',
+    jefes: {
+      1: 'Gárgola Avanzada', 2: 'Gárgola Avanzada',
+      3: 'Minotauro', 4: 'Minotauro',
+      5: 'Paladín del Caos', 6: 'Paladín del Caos'
+    }
+  },
+  4: {
+    name: 'Forajidos',
+    errante: 'Explorador',
+    erranteSup: 'Asesino Forajido',
+    jefes: {
+      1: 'Líder Forajido', 2: 'Líder Forajido',
+      3: 'Hombre Lobo', 4: 'Hombre Lobo',
+      5: 'Campeón Ogro', 6: 'Campeón Ogro'
+    }
+  }
+};
+
+const BOSS_NAMES = {
+  'Vampiro': ['Vladimir', 'Isolde', 'Malachar', 'Vesper', 'Kharak', 'Baron Vesper', 'Lady Night', 'Count Draven', 'Seraphine',
+    'Lady Bathory', 'Conde Orlok', 'Mirael la Sedienta', 'Baron Sanguine', 'Lilith Von Carstein', 'Lord Morbius', 'Carmilla', 'Dreadlord Vex'],
+  'Tumulario': ['Morvath', 'Kharak el Osario', 'Thul el Sepulcral', 'Grimhild', 'Bonefather', 'El Olvidado',
+    'Nagash el Menor', 'Osseous Rex', 'Sepulchro', 'Mordren el Eterno', 'Calavera Negra', 'El Guardián de Tumbas', 'Rattlegore'],
+  'Bestia de Cieno': ['Filthscale', 'Bogspawn', 'Muckfiend', 'Rotmaw', 'Slimeking', 'Bogspawn el Anciano',
+    'Plaguelord', 'Oozemaw', 'Fenbeast el Devorador', 'Mirefang', 'Swampking', 'Blightscale', 'Rotspawn'],
+  'Gran Jefe Orco': ['Drak el Colmillo', 'Grom el Aplastahuesos', 'Urgok', 'Skarfang', 'Bolgrim',
+    'Grimgor el Inmortal', 'Azhag el Carnicero', 'Wurrzag', 'Gorbad', 'Morglum Necksnapper', 'Ugluk el Cruel', 'Skarsnik'],
+  'Troll': ['Clubber el Brutal', 'Smashjaw', 'Boulderfist', 'Rockcrusher', 'Gutmuncher',
+    'Throgg el Rey', 'Stonegut', 'Ironhide', 'Rivermaw', 'Frostcrusher', 'Mudbelly', 'Bonecruncher'],
+  'Campeón Ogro': ['Brug el Lobo de Hierro', 'Grak el Aplastahuesos', 'Bolthar el Voraz', 'Krag el Rompemuros', 'Ironfist',
+    'Greasus Goldtooth', 'Skrag el Carnicero', 'Maneater', 'Gutlord', 'Tyrant Bragg', 'Slabgut', 'Bloodmaw'],
+  'Gárgola Avanzada': ['Petravox', 'Stonewing el Vigilante', 'Nightstone', 'Ruinwing', 'Gargoyle Rex',
+    'Obsidian Claw', 'Wing of Ruin', 'Stonegaze', 'Aetherwing', 'Bastion el Inmóvil', 'Grimspire', 'Voidstone'],
+  'Minotauro': ['Bullgore el Sagrado', "Khar'zhul el Cuerno Negro", 'Hornrage', 'Bloodhorn',
+    'Doombull', 'Gorehoof', 'Chaoshorn', 'Bullking el Devastador', 'Ragetusk', 'Ironhorn', 'Skullcrusher'],
+  'Paladín del Caos': ['Ruinblade', 'Varkos el Corrompido', 'Bloodreaver', 'Chaosbane',
+    'Archaon el Elegido', 'Kharn el Traidor', 'Skulltaker', 'Festus el Leproso', 'Sigvald el Magnífico', 'Valkia la Sangrienta', 'Aekold Helbrass'],
+  'Líder Forajido': ['Shadowfox', 'Garrik el Despiadado', 'Blackhand', 'Ravenclaw', 'Nightstalker',
+    'Cutthroat Jack', 'Sly Marbo', 'Black Bart', 'Widowmaker', 'The Pale Rider', 'Scarface', 'Deadeye Pete', 'Viper'],
+  'Hombre Lobo': ['Silverfang', 'Lunaris', 'Wolfsbane', 'Fangshadow', 'Moonhowler',
+    'Ulricsson', 'Bloodmoon', 'Direhowl', 'Frostfang', 'Nightpelt', 'Grimfang', 'Shadowmaw', 'Lupus Rex']
+};
+
+const QUEST_GIVERS = [
+  'el elfo silvano Thalanir', 'el Inquisidor Torvald', 'un agente de la Orden del Martillo de Plata',
+  'la vidente ciega de la aldea', 'el capitán de la guardia de Altdorf', 'el embajador de Tilea',
+  'el sacerdote de Sigmar, padre Markus', 'la viuda del último héroe caído', 'el jefe de los cazadores de brujas',
+  'el druida Elder Thorne', 'el rico mercader Tobias Quinn', 'el maestro de la logia masónica secreta',
+  'el comerciante Alaric Voss', 'la alquimista Maestra Vespera', 'el capitán de mercenarios Ragnar',
+  'el erudito de la Universidad de Nuln, profesor Holbein', 'el Baron Kestrel de Nuln',
+  'el señor de la guerra local, general Krantz', 'la hechicera ambulante Mira', 'la noble dama Isolde von Carstein',
+  'Lord Harwin de las Tierras Bajas', 'la Abadesa del convento de Shallya', 'el líder del gremio de ladrones',
+  'el maestro de la logia de magos', 'la sibila de Averheim', 'el comandante de la Guardia Imperial',
+  'el barón von Raukov', 'la sacerdotisa de Shallya, madre Elena', 'el enano maestro de runas Durin',
+  'el agente de los Altos Elfos', 'el comerciante de Marienburg Gerrit', 'el cazador de recompensas Klaus',
+  'el Gran Teogonista de Sigmar', 'la matriarca del clan enano Kazador', 'el príncipe elfo Eltharion',
+  'el magistrado de Talabheim', 'la capitana de los Reiksguard, Helena', 'el nigromante arrepentido Volker',
+  'el jefe de los exploradores de la Marca', 'la dama de la corte von Liebwitz', 'el maestro armador de Nuln',
+  'el patriarca del gremio de alquimistas', 'la oráculo de Verena', 'el heraldo imperial de Karl Franz',
+  'el líder de la resistencia de Mordheim', 'la bruja blanca de Laurelorn', 'el senescal del Castillo Reikland',
+  'el alto sacerdote de Ulric', 'la comerciante de especias de Araby, Fatima', 'el veterano de la Guerra de los Tres Emperadores'
+];
+
+const HERO_LOCATIONS = [
+  'las afueras de la necrópolis de Valdris', 'la posada del Dragón Dormido', 'una taberna de Altdorf',
+  'el puerto de Lothern', 'el campamento de mercenarios de las Marcas Orientales',
+  'el puesto de avanzada de la guardia', 'el campamento de refugiados', 'la ciudad libre de Marienburg',
+  'el borde del Bosque de las Sombras', 'la Universidad de Nuln', 'el convento de Shallya',
+  'la aldea de Grenzstadt', 'el mercado de Averheim', 'la posada El Cuervo Negro',
+  'las calles de Nuln', 'el puerto de Marienburg', 'el templo de Sigmar en Altdorf',
+  'la posada de la Luna Creciente', 'el campamento militar en las Montañas Grises',
+  'la plaza del mercado de Talabheim', 'el monasterio de Shallya', 'las ruinas cercanas a Mordheim',
+  'la posada del Unicornio Blanco', 'el muelle de los pescadores de Marienburg', 'la torre de los magos de Altdorf',
+  'el campamento de los enanos en las Montañas Negras', 'la aldea de Untergard', 'el puente de Wolfenburg',
+  'la taberna de la Cabeza del Jabalí', 'el mercado negro de Nuln', 'las afueras de Middenheim',
+  'el templo de Ulric en Middenheim', 'la posada del Martillo de Sigmar', 'el cuartel de los Reiksguard',
+  'la aldea de Bögenhafen', 'el puerto fluvial de Talabec', 'las ruinas del Fuerte Denkh',
+  'la posada del Águila Imperial', 'el campamento de los elfos silvanos', 'la plaza de armas de Averheim'
+];
+
+const ADVENTURE_LOCATIONS = [
+  'las ruinas del anfiteatro de Nuln', 'el monasterio abandonado de Shallya', 'el escondite de los contrabandistas de Marienburg',
+  'las grutas de los Hombres Bestia', 'la gruta del Oráculo Ciego', 'las ruinas de la ciudadela de Tilea',
+  'el templo del Caos bajo las colinas', 'el pantano de las Lágrimas Negras', 'las catacumbas de Valdris',
+  'las Cuevas de Hierro', 'el santuario corrupto de Nurgle', 'la torre del nigromante en los Páramos',
+  'la fortaleza subterránea de los Skaven', 'el cementerio viejo de Nuln', 'el templo del Caos en las Montañas Grises',
+  'la guarida de los Forajidos del Paso del Cuervo', 'las catacumbas de Mordheim', 'las ruinas de la Torre de las Nieblas',
+  'el templo sumergido de Myrmidia', 'la torre de vigilancia abandonada', 'las minas abandonadas de las Montañas Negras',
+  'el fuerte imperial en ruinas', 'las cavernas del Río Negro', 'el santuario de los Cultistas',
+  'las ruinas de la villa von Carstein', 'el laberinto de los Espejos Rotos', 'la cripta ancestral de los Voss',
+  'las ruinas de la Torre del Cuervo', 'el templo olvidado de Khaine', 'las minas de plata de Karak Azgal',
+  'la fortaleza de los Hombres Bestia en el Drakwald', 'el cementerio de los Héroes Caídos', 'las catacumbas bajo Altdorf',
+  'el santuario de Slaanesh en las colinas', 'la torre del hechicero loco de Praag', 'las ruinas de la Ciudad de los Espejos',
+  'el pantano de las Almas Perdidas', 'la guarida del dragón en las Montañas del Fin del Mundo',
+  'el templo de los Antiguos bajo el mar', 'las ruinas de la Academia de Magia de Nuln',
+  'el laberinto de los Skaven bajo Marienburg', 'la cripta del Barón von Carstein', 'el fuerte abandonado de Helmgart',
+  'las cavernas de cristal de las Montañas Grises', 'el santuario corrupto de Tzeentch', 'las ruinas de la Villa Imperial'
+];
+
+const OBJECTS = [
+  'El Amuleto Familiar De Los Voss', 'El Libro De Los Nombres Verdaderos', 'El Cáliz De La Compasión',
+  'El Mapa De Las Rutas Subterráneas', 'El Medallón De La Familia Quinn', 'El Relicario Con Estaca Sagrada',
+  'La Llave Del Sello Ancestral', 'La Daga Ritual De Myrmidia', 'El Orbe De Visión Verdadera',
+  'El Cuerno De Caza Del Bosque', 'El Cetro De Mando Élfico', 'La Gema Del Alba',
+  'La Piedra Del Juramento Enano', 'El Pergamino De Las Sombras', 'El Anillo De Poder Ancestral',
+  'La Corona De Los Reyes Olvidados', 'El Espejo De La Verdad', 'La Urna De Las Almas Perdidas',
+  'El Bastón Del Archimago', 'La Espada De Los Héroes Caídos', 'El Talismán De Protección Divina',
+  'El Grimorio De Los Secretos Prohibidos', 'La Gema Del Sol Eterno', 'El Collar De La Luna Plateada',
+  'El Sello Imperial De Karl Franz', 'La Lanza De Myrmidia', 'El Yunque Rúnico De Los Enanos',
+  'El Libro De Los Hechizos Prohibidos', 'La Máscara Del Oráculo Ciego', 'El Cáliz De Sangre De Los Vampiros',
+  'El Amuleto De Las Runas Antiguas', 'La Daga De Obsidiana De Khaine', 'El Pergamino Del Pacto Olvidado',
+  'La Gema Del Vacío Eterno', 'El Cuerno De Guerra De Ulric', 'El Medallón Del Sol Invictus',
+  'La Llave De Las Puertas Del Inframundo', 'El Anillo Del Señor De Las Bestias', 'El Espejo De Las Almas',
+  'La Corona De Los Reyes Enanos', 'El Bastón Del Druida Ancestral', 'La Urna De Las Cenizas Sagradas',
+  'El Talismán De Los Altos Elfos', 'El Grimorio De Nagash', 'La Espada Rúnica De Los Antepasados'
+];
+
+const PNJS = [
+  'Shelina Kravaia', 'Cartus Cedric', 'Edrin Bliz',
+  'Granola Wolgax', 'Errold Vud', 'Kira Voss',
+  'Valeria Ang', 'Torben Crix', 'Mongo Lorto',
+  'Aurelia Tridux', 'Baltasar Ostral', 'Griselsa Natar',
+  'Ariel Frisú', 'Walder Stror', 'Caliz Funtzz',
+  'Eleonoe Beltrán', 'Julio Garrón', 'Carlina Helín',
+  'Markus von Stahl', 'Elara Moonwhisper', 'Boris Ironfist',
+  'Seraphina Brightblade', 'Garrick Stonehelm', 'Lirael Windrunner',
+  'Thorek Bronzebeard', 'Isolde Ravenwood', 'Kaspar the Bold',
+  'Mirabel Quinn', 'Durak Fireforge', 'Helena von Reikland',
+  'Alaric Stormcaller', 'Brunhilde Axehand', 'Cedric the Silent',
+  'Freya Silverleaf', 'Grombrindal el Blanco', 'Ingrid Frostborn',
+  'Jorek Thunderfist', 'Katya Nightshade', 'Lothar von Carstein',
+  'Mira Stormwind', 'Narlok Ironjaw', 'Olga Bloodaxe'
+];
+
+const PNJS2= [
+  '(explorador: M7, A2, D2, C4, M3, ataque a distancia)', '(soldado: M7, A3, D3, C5, M3)',
+  '(herrero: M6, A2, D3, C5, M2, daño contundente)', '(clérigo: M7, A2, D2, C4, M4, 3 plegarias, daño contundente)', 
+'(mago: M6, A1, D2, C3, M5, 1 grupo de hechizos elementales)',
+  '(paladín: M6, A3, D3, C4, M3, conocé plegaria imposición de manos)', 
+  '(noble adinerado: M6, A1, D2, C3, M2)',
+  '(alquimista: M6, A1, D2, C3, M5, 1 poción aleatoria)',
+  '(aldeano: M6, A1, D2, C3, M2)',
+  '(adolescente: M6, A1, D2, C3, M2)'
+];
+
+const SPECIAL_RULES = {
+  1: `♦ Regla Especial 1: cambia 2 Cartas de Atrezo al azar del Mazo de Atrezo (que no sean cofres) por 2 Librerías. Las Salas Especiales, además de lo que se especifique, contendrán una Librería si es posible. Si un héroe revisa una Librería deberá lanzar 1D6. Si obtiene 6 se habrá encontrado el objeto (los héroes podrán salir de la mazmorra y cobrar una recompensa). Cada Librería adicional revisada otorgará +1 al D6. Si no se encontró el objeto en las Librerías, se encontrará al matar al Jefe de la Sala Objetivo.`,
+  2: `♦ Regla Especial 2: cambia una Carta de Atrezo al azar del Mazo de Atrezo (que no sea un cofre) por una Mesa de Hechicero. Si un héroe revisa la Mesa de Hechicero, habrá encontrado el objeto (los héroes podrán salir de la mazmorra y cobrar la recompensa). Si no, se encontrará al matar al Jefe de la Sala Objetivo.`,
+  3: `♦ Regla Especial 3: cambia una Carta de Atrezo al azar del Mazo de Atrezo (que no sea un cofre) por una Armería. Si un héroe revisa la Armería, habrá encontrado el objeto (los héroes podrán salir de la mazmorra y cobrar la recompensa). Si no, se encontrará al matar al Jefe de la Sala Objetivo.`,
+  4: `♦ Regla Especial 4: cambia dos Cartas de Atrezo al azar del Mazo de Atrezo (que no sean cofres) por Armarios. Las Salas Especiales, además de lo que se especifique, contendrán un Armario si es posible. Si un héroe revisa un Armario deberá lanzar 1D6. Si obtiene 6 se habrá encontrado el objeto (los héroes podrán salir de la mazmorra y cobrar la recompensa). Cada Armario adicional revisado otorgará +1 al D6. Si no se encontró el objeto en los Armarios, se encontrará al matar al Jefe de la Sala Objetivo.`,
+  5: `♦ Regla Especial 5: Introduce 2 Cartas de Tesoro marcadas en tu Mazo de Tesoros. Si se roba alguna de ellas al buscar tesoros, el héroe que buscó habrá encontrado el Objeto (los héroes podrán salir de la mazmorra y cobrar la recompensa). Si no, el objeto se encontrará al matar al Jefe de la Sala Objetivo.`,
+  6: `♦ Regla Especial 6: cuando muera el Jefe de la Sala Objetivo, el objeto se encontrará en su cadáver.`,
+  7: `♦ Regla Especial 7: la primera Sala Especial que aparezca, además de su contenido, tiene un Cofre que al abrirlo se encontrará el objeto (no robes Carta de Cofre para este cofre). Los héroes podrán salir de la mazmorra y cobrar una recompensa de 100mo o bien continuar para abatir al Jefe Final.`,
+  8: `♦ Regla Especial 8: Cambia una carta de Sala Especial por la carta Sala Especial A.
+Sala Especial A: Al abrir la puerta os encontráis con unos imponentes monstruos que custodian con celo un cofre tras ellos. Coloca tantos monstruos de Categoría 3 de la facción de la Misión como héroes en juego. El cofre se abre de la forma habitual pero además del oro, contiene una Llave de Jaula.
+Sala Objetivo: además del Jefe, en la sala objetivo se encuentra el PNJ cautivo en una jaula. Una vez destruido el Jefe, los héroes podrán liberar al PNJ si consiguieron la Llave de Jaula y la misión acabará.`,
+  9: `♦ Regla Especial 9: Cambia una carta de Sala Especial por la carta Sala Especial A. Cuando dicha sala sea encontrada lee el texto a continuación.
+Sala Especial A: Coloca un Armario y ninguna puerta. Quien revise el Armario encontrará al PNJ escondido en él. Parece encontrarse en buen estado y a partir de ahora acompañará a los héroes (uno de los jugadores lo manejará como mercenario). Deberéis encontrar al Jefe final y matarlo para aseguraros de que el PNJ esté a salvo en el futuro. Si lo hacéis, y aún está vivo el PNJ, recibiréis una recompensa adicional de 100 mo.`,
+  10: `♦ Regla Especial 10: Cambia una carta de Sala Especial por la carta de Sala Especial A. Cuando dicha sala sea encontrada lee el texto a continuación.
+Sala Especial A: Coloca un Potro de tortura y tira en la Tabla de Encuentros. El PNJ se encuentra ensangrentado y con la ropa hecha girones sobre el potro. Cuando acabéis con los monstruos y reviséis el Potro lanzad 1D6:
+1-2: al acercaros el PNJ expira su último aliento mientras señala una zona oscura de la sala. Obtenéis un Pergamino al azar que se hallaba en la zona señalada. Debéis matar al Jefe Final para vengarle.
+3-4: el PNJ está malherido y tiene la mitad de sus PCs. Tras liberarlo os acompaña durante esta Misión como mercenario para destruir al jefe de sus captores (Jefe Final).
+5-6: el PNJ apenas está herido, pues sus torturadores no han tenido tiempo suficiente. Al liberarlo, os acompaña durante esta Misión como mercenario para destruir al jefe de sus captores (Jefe Final).`,
+  11: `♦ Regla Especial 11: Debéis daros prisa, pues el PNJ va a ser sacrificado en un horrible ritual de invocación. Cada vez que se haga una Tirada de Peligro, además lanza 1D10 y suma el nivel del mismo. Si el resultado es 10 o más, pon un Contador de Muerte en el PNJ. Si se llega a 6 contadores de muerte, el PNJ habrá muerto sacrificado: ahora el mal al que os tendréis que enfrentar será mayor y deberéis encontrar la Sala Objetivo para destruirlo.
+Sala Objetivo: sustituye los Monstruos Errantes a colocar por Cultistas. En vez de robar Cartas de Atrezo para montar la sala, coloca un Potro de Tortura donde se hallará el PNJ (vivo o muerto). Si el PNJ ha muerto, sustituye un Cultista por una Gárgola (el demonio ha sido invocado).`,
+  12: `♦ Regla Especial 12: Encontráis al PNJ en la primera sala de la mazmorra intentando encontrar el objeto sagrado. En las Salas Especiales, al buscar tesoros o revisar muebles, lanzad 1d6, si sacáis un 6, el objeto aparecerá, y podréis abandonar la misión y cobrar la recompensa, si no, lo tendrá el Jefe Final. 
+El PNJ os acompañará durante toda la Misión en busca del objeto. Si la completáis, pero el PNJ muere, no recibiréis la recompensa por acabarla.`,
+  13: `♦ Regla Especial 13: Debéis daros prisa en encontrar el objeto, pues la vida del PNJ pende de un hilo.
+- Introduce la Carta de Tesoro Antídoto en el Mazo de Tesoros o bien marca una carta, la cual será el objeto.
+- Cambia una carta al azar del Mazo de Atrezo por una carta Mesa de Alquimista. El primer héroe que la revise, encontrará el objeto.
+- Si no se encontró el objeto, se encontrará en el cadáver del Jefe de la Sala Objetivo. Los héroes deben encontrarlo antes de que el PNJ muera. Cada vez que se haga una Tirada de Peligro, además lanza 1D10 y suma el nivel del mismo. Si el resultado es 10 o más, pon un Contador de Muerte en el PNJ. Si se llega a 6 contadores de muerte, el PNJ habrá muerto.
+Si el PNJ murió, los héroes pueden continuar la partida, para acabar con el Jefe de la Sala Objetivo.
+Si los héroes encontraron el Antídoto antes de llegar a la Sala Objetivo, podrán finalizar la misión, y cobrar una recompensa extra de 100 mo por salvar la vida del PNJ.`,
+  14: `♦ Regla Especial 14: El PNJ acompañará a los héroes desde el principio para ayudar a destruir al Jefe Final. Suma al Jefe Final de esta Misión 2 PCs adicionales.`
+};
+
+const OBJECTIVE_TABLE = {
+  '1,1': { text: 'Recuperar un objeto almacenado en un lugar.', rule: 1 },
+  '1,2': { text: 'Recuperar un objeto almacenado en un lugar.', rule: 1 },
+  '1,3': { text: 'Recuperar un objeto almacenado en un lugar mágico.', rule: 2 },
+  '1,4': { text: 'Recuperar un objeto almacenado en un lugar mágico.', rule: 2 },
+  '1,5': { text: 'Recuperar un objeto perdido en un lugar.', rule: 3 },
+  '1,6': { text: 'Recuperar un objeto perdido en un lugar.', rule: 3 },
+  '2,1': { text: 'Recuperar un objeto perdido en un lugar.', rule: 4 },
+  '2,2': { text: 'Recuperar un objeto perdido en un lugar.', rule: 4 },
+  '2,3': { text: 'Recuperar un objeto perdido en un lugar.', rule: 5 },
+  '2,4': { text: 'Recuperar un objeto perdido en un lugar.', rule: 5 },
+  '2,5': { text: 'Obtener un objeto en manos del Jefe Final.', rule: 6 },
+  '2,6': { text: 'Obtener un objeto en manos del Jefe Final.', rule: 6 },
+  '3,1': { text: 'Obtener un objeto en manos del Jefe Final.', rule: 6 },
+  '3,2': { text: 'Obtener un objeto en manos del Jefe Final.', rule: 6 },
+  '3,3': { text: 'Recuperar un objeto custodiado en un lugar.', rule: 7 },
+  '3,4': { text: 'Recuperar un objeto custodiado en un lugar.', rule: 7 },
+  '3,5': { text: 'Salvar a un prisionero (inventa quién).', rule: 8 },
+  '3,6': { text: 'Salvar a un prisionero (inventa quién).', rule: 8 },
+  '4,1': { text: 'Encontrar a alguien perdido (inventa quién).', rule: 9 },
+  '4,2': { text: 'Encontrar a alguien perdido (inventa quién).', rule: 9 },
+  '4,3': { text: 'Rescatar a alguien que está siendo torturado (inventa quién).', rule: 10 },
+  '4,4': { text: 'Rescatar a alguien que está siendo torturado (inventa quién).', rule: 10 },
+  '4,5': { text: 'Salvar a alguien que va a ser sacrificado (inventa quién).', rule: 11 },
+  '4,6': { text: 'Salvar a alguien que va a ser sacrificado (inventa quién).', rule: 11 },
+  '5,1': { text: 'Encontrar a alguien que está explorando (inventa quién).', rule: 12 },
+  '5,2': { text: 'Encontrar a alguien que está explorando (inventa quién).', rule: 12 },
+  '5,3': { text: 'Encontrar un objeto (inventa qué) para salvar una vida (inventa quién).', rule: 13 },
+  '5,4': { text: 'Encontrar un objeto (inventa qué) para salvar una vida (inventa quién).', rule: 13 },
+  '5,5': { text: 'Ayudar a alguien (inventa quién) en su objetivo. Vuelve a tirar en esta tabla.', rule: 14 },
+  '5,6': { text: 'Ayudar a alguien (inventa quién) en su objetivo. Vuelve a tirar en esta tabla.', rule: 14 },
+  '6,1': { text: 'Matar al Jefe Final.', rule: 0 },
+  '6,2': { text: 'Matar al Jefe Final.', rule: 0 },
+  '6,3': { text: 'Matar al Jefe Final.', rule: 0 },
+  '6,4': { text: 'Matar al Jefe Final.', rule: 0 },
+  '6,5': { text: 'Matar al Jefe Final.', rule: 0 },
+  '6,6': { text: 'Matar al Jefe Final.', rule: 0 }
+};
+
+/* Títulos por tipo de misión (placeholders: {boss}, {obj}, {pnj}) */
+const TITLES_BOSS = [
+  'La Guarida de {boss}', 'La Caída de {boss}', 'El Eco de {boss}', 'Sangre para {boss}', 'La Conspiración de {boss}',
+  'Muerte para {boss}', 'El Desafío de {boss}', 'Caza Mayor: {boss}', 'El Juicio de {boss}', 'Amenaza Mortal: {boss}',
+  'La Sombra de {boss}', 'En busca de {boss}', 'El Despertar de {boss}', 'Cazadores de {boss}',
+  'La Odisea contra {boss}', 'Bajo el Yugo de {boss}', 'La Amenaza de {boss}',
+  'El Fin de {boss}', 'La Venganza contra {boss}', 'El Ascenso de {boss}', 'Pesadilla: {boss}',
+  'La Cacería de {boss}', 'El Último Suspiro de {boss}', 'Tinieblas: {boss}', 'El Trono de {boss}',
+  'La Maldición de {boss}', 'El Requiem de {boss}', 'Furia contra {boss}', 'El Ocaso de {boss}',
+  'La Leyenda de {boss}', 'El Abismo de {boss}', 'Tormenta: {boss}', 'La Ira de {boss}'
+];
+
+const TITLES_OBJECT = [
+  'La Búsqueda de {obj}', 'El Secreto de {obj}', 'Recuperar {obj}', 'La Sombra sobre {obj}',
+  'En busca de {obj}', 'El Destino de {obj}', 'Ladrones de {obj}', 'La Maldición de {obj}',
+  '{obj}: la carrera contra el tiempo', 'El Rastro de {obj}', 'Guardianes de {obj}',
+  'La Conspiración de {obj}', 'El Precio de {obj}', 'Sombras en torno a {obj}',
+  '{obj} en peligro', 'La Recuperación de {obj}', 'El Eco de {obj}',
+  'Tras las huellas de {obj}', 'La Última Esperanza: {obj}', 'El Botín de {boss}: {obj}',
+  'Entre {boss} y {obj}', 'La Furia de {boss} y el secreto de {obj}'
+];
+
+const TITLES_RESCUE = [
+  'Rescate en la oscuridad', 'La Jaula de {pnj}', 'Salvar a {pnj}', 'Cautivo de {boss}',
+  'La Deuda de {pnj}', 'Prisionero de {boss}', 'Liberar a {pnj}', 'El Grito de {pnj}',
+  'Sombras sobre {pnj}', 'La Trampa de {boss}', 'Rescate de {pnj}',
+  'Entre rejas: {pnj}', 'La Noche de {pnj}', 'Venganza por {pnj}',
+  'El Sacrificio de {pnj}', 'Huellas de {pnj}', 'La Esperanza de {pnj}',
+  'Cadenas de {boss}', 'El Último Aliento de {pnj}', 'Rescate bajo la sombra de {boss}'
+];
+
+const TITLES_EXPLORER = [
+  'El Explorador Perdido', '{pnj} y la Búsqueda de {obj}', 'Rastro de {pnj}',
+  'Desaparecido en busca de {obj}', 'La Expedición de {pnj}', 'Encuentro con {pnj}',
+  'Aliados en la oscuridad: {pnj}', 'El Camino de {pnj}', 'Tras {pnj} y {obj}',
+  'La Misión de {pnj}', 'Perdidos: {pnj}', 'El Secreto que busca {pnj}',
+  '{pnj}: entre {obj} y {boss}', 'La Apuesta de {pnj}'
+];
+
+const TITLES_LIFESAVER = [
+  'La Carrera por {obj}', 'Salvar a {pnj}', 'El Antídoto de {pnj}',
+  'Tiempo contra {obj}', 'La Maldición de {pnj}', 'Última esperanza: {obj}',
+  'Vida o muerte: {pnj}', 'El Remedio de {pnj}', 'Contra el reloj: {obj}',
+  'La Agonía de {pnj}', 'Buscando {obj} para {pnj}', 'El Aliento de {pnj}',
+  '{obj}: la clave de la vida de {pnj}', 'Desesperación: {pnj}'
+];
+
+const TITLES_ALLY = [
+  'Aliados contra {boss}', 'La Venganza de {pnj}', '{pnj} y la Caza de {boss}',
+  'Juntos contra {boss}', 'La Ira de {pnj}', 'Compañeros de armas: {pnj}',
+  'El Juramento de {pnj}', 'A la sombra de {boss}', 'La Alianza con {pnj}',
+  'Furia compartida: {pnj}', 'El Camino de {pnj}', 'Hermanos de sangre contra {boss}',
+  '{pnj}: compañero de caza', 'La Deuda de {pnj} con {boss}'
+];
+
+const REWARDS = [90, 100, 100, 110];
+
+/* Reglas extras (del archivo lista.txt) */
+const EXTRA_RULES = [
+  {
+    name: 'Cambio de lugar',
+    text: 'El contenido de la Sala Objetivo será colocado en la Sala Especial B, y el de la Sala Especial B, en la Sala Objetivo.'
+  },
+  {
+    name: 'Cerradura',
+    text: 'Para poder entrar en la Sala Objetivo, habrá que encontrar primero una Llave, la cual se obtendrá buscando tesoros y encontrando la carta marcada (marca antes de empezar una carta de tesoro aleatoria del mazo de tesoros).'
+  },
+  {
+    name: 'Capturados',
+    text: 'Los héroes serán emboscados y despojados de su equipo. La sala inicial será una pequeña sin escaleras. El equipo será encontrado si, al entrar en una sala, obtienen un escudo blanco en un dado de combate; mientras, el nivel de peligro no podrá sobrepasar el nivel 4. Añade una escalera en la Sala Especial B.'
+  },
+  {
+    name: 'Encerrados',
+    text: 'Un derrumbamiento anula la entrada. La sala inicial no tendrá escalera en esta misión. Añade una escalera de salida en la Sala Especial B. Los héroes no podrán huir ni finalizar la misión si no han encontrado la escalera. Si la han encontrado y han superado la misión, no es necesario que lleguen hasta ella para finalizarla.'
+  },
+  {
+    name: 'Niebla',
+    text: 'Debido a una antinatural niebla, ninguna miniatura podrá atacar a distancia, ni lanzar hechizos, a más de tres casillas de distancia durante esta misión.'
+  },
+  {
+    name: 'Inundación',
+    text: 'Los pasillos y Salas Especiales de esta misión estarán inundados, y se considerarán terreno difícil, y costarán un punto de movimiento extra cruzar cada casilla de ellas. Las criaturas voladoras, éteres, y acuáticas no se verán afectadas. El MB contará con un Punto de Mejora Oscura menos en la actual misión. Se recomienda jugar con héroes de al menos hayan superado 7 misiones adicionales a lo estipulado normalmente.'
+  },
+  {
+    name: 'Jefe Imprevisible',
+    text: 'Al encontrar una Sala Especial, lanzas un dado: si sale un 5 o un 6, el Jefe Final se encontrará en dicha sala, junto a un monstruo errante por héroe en juego (no tires encuentros). Si el objetivo de la misión es distinto al de matar al jefe, dicho objetivo seguirá estando en la Sala Objetivo (tira encuentros en la Sala Objetivo si ya había salido el Jefe antes). La sala con el Jefe nunca tiene trampas.'
+  },
+  {
+    name: 'Comienzo Intenso',
+    text: 'La sala inicial de la escalera será una Sala Especial aleatoria, atrezo y monstruos incluidos. Dicha sala no cuenta como cómputo del número de Salas Especiales en la misión (se suma +1 al total de Salas Especiales). Disminuye en uno la cantidad de salas normales de la misión.'
+  },
+  {
+    name: 'Misión Peligrosa',
+    text: 'El nivel de peligro inicial de la misión aumenta en uno. El MB contará con dos Puntos de Mejora Oscura menos en la actual misión. Se recomienda jugar con héroes que al menos hayan superado 14 misiones adicionales a lo estimado normalmente.'
+  },
+  {
+    name: 'Más Trampas',
+    text: 'Reduce en uno el Dado de Trampa de la misión. El MB contará con dos Puntos de Mejora Oscura menos en la actual misión. Se recomienda jugar con héroes que hayan superado al menos 14 misiones adicionales a lo estimado normalmente.'
+  },
+  {
+    name: 'Menos Trampas',
+    text: 'Aumenta en uno el Dado de Trampa de la misión. El MB contará con dos Puntos de Mejora Oscura adicionales en la actual misión.'
+  },
+  {
+    name: 'Pasadizos ocultos',
+    text: 'Cuando un héroe revise un atrezo que esté pegado a una pared, si saca un 6 en 1D6, descubre también una puerta secreta o, de no ser posible, una trampilla, que conecta con una sala nueva. Estas salas siguen las normas de salas encontradas detrás de una puerta secreta, pero, además, se realizará una tirada de encuentros en ellas para colocar monstruos también.'
+  },
+  {
+    name: 'Ecos del pasado',
+    text: 'Los espectros de los muertos resuenan en la mazmorra. Cada vez que un héroe entre en una sala especial por primera vez, ha de lanzar un dado de combate: con una calavera, encontrará un espíritu maligno y perderá un Punto de Mente; con otro resultado, encontrará un espíritu benévolo y recuperará un Punto de Cuerpo perdido.'
+  },
+  {
+    name: 'Disformidad mágica',
+    text: 'Fluctuantes focos de poder arcano hacen que los habitantes de la mazmorra posean insólitos dones mágicos. Todos los monstruos de la misión ganan un hechizo de caos/terror aleatorio por cada Punto de Mente superior a 2. Cuando los héroes lancen algún conjuro o plegaria, podrán realizar dos tiradas en la tabla de Vientos de Magia, y quedarse con el resultado que prefieran.'
+  }
+];
+
+/* ============================================================
+   TÍTULOS, INTRODUCCIONES Y EPÍLOGOS (variantes por caso)
+   ============================================================ */
+
+function buildTitle(ruleNum, ctx) {
+  const { bossName, obj, pnj } = ctx;
+  let pool;
+  if (ruleNum === 0) pool = TITLES_BOSS;
+  else if ([8, 9, 10, 11].includes(ruleNum)) pool = TITLES_RESCUE;
+  else if (ruleNum === 12) pool = TITLES_EXPLORER;
+  else if (ruleNum === 13) pool = TITLES_LIFESAVER;
+  else if (ruleNum === 14) pool = TITLES_ALLY;
+  else pool = TITLES_OBJECT;
+
+  let t = rnd(pool);
+  t = t.replace(/\{boss\}/g, bossName || 'el Jefe');
+  t = t.replace(/\{obj\}/g, obj || 'el artefacto');
+  t = t.replace(/\{pnj\}/g, pnj || 'el desaparecido');
+  return t;
+}
+
+function buildIntro(ruleNum, ctx) {
+  const { heroLoc, giver, bossName, jefeType, fac, advLoc, pnj, obj } = ctx;
+  const g = capitalize(giver);
+
+  const intros0 = [
+    `Los héroes se encuentran en ${heroLoc} cuando ${giver} les solicita ayuda urgente. La misión es clara: ${bossName}, un poderoso ${jefeType} de ${fac.name}, debe morir. Se ha atrincherado en ${advLoc} y desde allí dirige incursiones que aterrorizan la comarca. ${g} ha reunido a los héroes para poner fin a la amenaza de una vez por todas. No hay objeto que recuperar ni prisionero que salvar: solo la muerte del jefe garantizará la paz. Las fuerzas de ${fac.name} no darán cuartel y cada sala puede ocultar peligros inesperados. La noche cae sobre ${advLoc} cuando los héroes se preparan para la incursión.`,
+    `En ${heroLoc}, ${giver} intercepta a los héroes con un mensaje sombrío. ${bossName}, temible ${jefeType} al mando de las fuerzas de ${fac.name}, ha convertido ${advLoc} en su fortaleza personal. Desde allí lanza ataques cada vez más audaces. ${g} no ofrece rodeos: la única solución es la muerte del jefe. No hay artefactos ni rehenes que compliquen la operación; se trata de una cacería pura. Los héroes aceptan la carga sabiendo que el camino hasta ${advLoc} estará sembrado de enemigos y trampas.`,
+    `La noticia llega a ${heroLoc} como un vendaval: ${bossName}, un ${jefeType} de ${fac.name}, se ha hecho fuerte en ${advLoc}. ${g} convoca a los héroes y les deja claro el objetivo. No se trata de recuperar un objeto ni de liberar a nadie. Solo la cabeza del jefe devolverá la tranquilidad a la región. Las fuerzas de ${fac.name} protegen su señor con ferocidad, y cada paso hacia la Sala Objetivo será un combate. Los héroes se arman en silencio mientras la oscuridad envuelve ${advLoc}.`,
+    `Mientras descansan en ${heroLoc}, los héroes reciben la visita de ${giver}. Su rostro es grave. ${bossName}, poderoso ${jefeType} de ${fac.name}, ha establecido su dominio en ${advLoc} y ya no hay diplomacia posible. ${g} les pide que eliminen la amenaza de raíz. Sin prisioneros que rescatar ni reliquias que recuperar, la misión se reduce a una sola orden: matar al Jefe Final. Las tropas de ${fac.name} no mostrarán piedad, y la noche se cierne sobre las ruinas cuando el grupo parte hacia el combate.`
+  ];
+
+  const introsRescue = [
+    `Los héroes se encuentran en ${heroLoc} cuando ${giver} les solicita ayuda urgente. ${pnj} ha sido capturado por las fuerzas de ${bossName} (${jefeType}) y se encuentra retenido en ${advLoc}. Los captores son agentes de los ${fac.name} y no mostrarán clemencia. Los héroes deben infiltrarse, localizar al prisionero y liberarlo (o al menos vengarlo) antes de que sea demasiado tarde. ${g} ofrece una recompensa sustancial y ruega celeridad. El lugar está repleto de enemigos y trampas, y cada hora que pasa aumenta el peligro para ${pnj}.`,
+    `En ${heroLoc}, ${giver} llega con el rostro demacrado. ${pnj} ha caído en manos de ${bossName}, un despiadado ${jefeType}, amo de un grupo de ${fac.name} que operan desde ${advLoc}. No hay tiempo que perder: el cautivo puede ser torturado, sacrificado o usado como cebo. ${g} implora a los héroes que se adentren en el lugar, localicen a ${pnj} y lo saquen con vida o, en el peor de los casos, hagan pagar al jefe por su crueldad. Las sombras de ${advLoc} ya se cierran sobre la víctima.`,
+    `La alarma se extiende por ${heroLoc}. ${pnj} ha desaparecido y todas las pistas apuntan a ${advLoc}, guarida de ${bossName} (${jefeType}) y de las fuerzas de ${fac.name}. ${g} reúne a los héroes y les confía la misión de rescate. No será fácil: trampas, monstruos y la propia presencia del jefe dificultarán cada paso. El tiempo corre en contra del cautivo. Si los héroes fracasan, ${pnj} pagará el precio más alto.`,
+    `Mientras los héroes se recuperan en ${heroLoc}, ${giver} irrumpe con una petición desesperada. ${pnj} está prisionero de ${bossName}, un temible ${jefeType} líder de muchos ${fac.name}, en las profundidades de ${advLoc}. Los captores no tienen piedad y cada momento aumenta el sufrimiento del rehén. ${g} promete recompensa y apoyo logístico, pero la verdadera carga recae sobre el grupo. Deben infiltrarse, encontrar a ${pnj} y enfrentarse al jefe si hace falta.`
+  ];
+
+  const intros12 = [
+    `Los héroes se encuentran en ${heroLoc} cuando ${giver} les solicita ayuda urgente. ${pnj} se ha adentrado en ${advLoc} en busca de ${obj} y no ha regresado. Se teme que haya sido capturado por ${bossName}, un poderoso ${jefeType} señor de numerosos ${fac.name}. Los héroes deben encontrarlo y ayudarlo a completar su objetivo o al menos sacarlo con vida. ${g} les facilita un mapa aproximado y una recompensa por el rescate. Las fuerzas de ${fac.name} no darán cuartel y cada sala puede ocultar peligros inesperados.`,
+    `En ${heroLoc}, ${giver} confiesa su preocupación. ${pnj} partió solo hacia ${advLoc} tras el rastro de ${obj} y lleva demasiado tiempo sin dar señales. ${bossName}, ${jefeType} comandante de ${fac.name}, controla aquella zona y no suele dejar testigos. ${g} ruega a los héroes que localicen al explorador, le ayuden a recuperar el artefacto y regresen juntos. Si ${pnj} ya ha caído, al menos deben vengar su destino.`,
+    `La noticia llega a ${heroLoc}: ${pnj} se internó en ${advLoc} persiguiendo ${obj} y desapareció. ${g} convoca a los héroes y les explica que ${bossName}, un peligroso ${jefeType} perteneciente a los ${fac.name}, domina el lugar. La misión es doble: encontrar al desaparecido y asegurar el objeto. Cada sala puede esconder trampas o emboscadas, y el tiempo juega en contra de ambos.`,
+    `Mientras descansan en ${heroLoc}, los héroes reciben a ${giver}. Su tono es urgente. ${pnj} se ha perdido en ${advLoc} mientras buscaba ${obj}. Se sospecha que ${bossName} (${jefeType}) y su horda de ${fac.name} tienen algo que ver. ${g} les pide que entren, localicen al explorador y le ayuden a completar su búsqueda. Si el objeto ya está en manos del jefe, tendrán que tomarlo por la fuerza.`
+  ];
+
+  const intros14 = [
+    `Los héroes se encuentran en ${heroLoc} cuando ${giver} les solicita ayuda urgente. ${pnj} se une a los héroes desde el principio. Su objetivo es destruir a ${bossName}, un ${jefeType} que amenaza la región desde ${advLoc}. Las fuerzas de ${fac.name} se han reunido bajo su mando. ${g} respalda la misión y promete recompensa adicional si ${pnj} sobrevive. Las fuerzas de ${fac.name} no darán cuartel y cada sala puede ocultar peligros inesperados.`,
+    `En ${heroLoc}, ${giver} presenta a ${pnj} como compañero de armas. Ambos coinciden en que ${bossName}, temible ${jefeType} de los ${fac.name}, debe caer. Su guarida en ${advLoc} se ha convertido en un nido de corrupción. ${pnj} viajará con el grupo desde el primer paso y aportará su experiencia. ${g} asegura recompensa extra si el aliado regresa con vida. La noche se cierne sobre ${advLoc} cuando parten juntos.`,
+    `La llamada llega a ${heroLoc}. ${g} ha reunido a ${pnj} con los héroes para una misión común: acabar con ${bossName}, ${jefeType} que dirige una fuerza de ${fac.name} desde ${advLoc}. ${pnj} no es un simple acompañante; tiene sus propias razones para odiar al jefe y combatirá a su lado. La recompensa será mayor si ambos regresan. El camino hacia la Sala Objetivo estará lleno de peligros compartidos.`,
+    `Mientras los héroes se preparan en ${heroLoc}, ${giver} llega acompañado de ${pnj}. Este ha jurado destruir a ${bossName}, un poderoso ${jefeType} señor de los ${fac.name} atrincherado en ${advLoc}. ${g} les une en un solo propósito y promete recompensa adicional si ${pnj} sobrevive a la incursión. Desde el primer paso compartirán riesgos, trampas y combates. La oscuridad de ${advLoc} espera a ambos.`
+  ];
+
+  const intros13 = [
+    `Los héroes se encuentran en ${heroLoc} cuando ${giver} les solicita ayuda urgente. ${pnj} ha sido maldecido, y solo ${obj} puede salvar su vida. Dicho objeto se halla en ${advLoc}, un lugar controlado por fuerzas de ${fac.name} bajo el mando de ${bossName}, un temible ${jefeType}. Los héroes deben adentrarse en ese lugar hostil, superar trampas y monstruos, y recuperar el objeto antes de que sea demasiado tarde. ${g} promete una recompensa generosa y advierte que el tiempo es crítico. La noche cae sobre ${advLoc} cuando los héroes se preparan para la incursión.`,
+    `En ${heroLoc}, ${giver} llega con una petición desesperada. ${pnj} agoniza bajo una maldición y únicamente ${obj} puede revertirla. El artefacto se encuentra en ${advLoc}, territorio de ${bossName} (${jefeType}) y de las fuerzas de ${fac.name}. Cada hora que pasa acerca a ${pnj} a la muerte. ${g} ruega celeridad: los héroes deben recuperar el objeto, superar a los monstruos y regresar a tiempo. La carrera contra el reloj ha comenzado.`,
+    `La alarma se extiende por ${heroLoc}. ${pnj} está muriendo y solo ${obj}, oculto en ${advLoc}, puede salvarlo. ${bossName}, poderoso ${jefeType} lider de ${fac.name}, controla aquel lugar y no facilitará la búsqueda. ${g} confía en los héroes y les advierte que el tiempo es el verdadero enemigo. Trampas, encuentros y la propia presencia del jefe dificultarán cada paso. Si llegan tarde, ${pnj} habrá muerto en vano.`,
+    `Mientras descansan en ${heroLoc}, los héroes reciben a ${giver}. Su mensaje es claro y urgente: ${pnj} necesita ${obj} para sobrevivir a una maldición. El objeto yace en ${advLoc}, bajo el dominio de ${bossName} (${jefeType}) y sus fuerzas de ${fac.name}. ${g} promete recompensa y apoyo, pero insiste en que cada momento cuenta. Los héroes se preparan para una incursión donde el reloj es tan peligroso como los monstruos.`
+  ];
+
+  const introsObj = [
+    `Los héroes se encuentran en ${heroLoc} cuando ${giver} les solicita ayuda urgente. Un valioso artefacto conocido como ${obj} se encuentra en peligro. Ha sido robado o perdido y ahora se halla en ${advLoc}, un lugar controlado por fuerzas de ${fac.name} bajo el mando de ${bossName}, un temible ${jefeType}. Los héroes deben adentrarse en ese lugar hostil, superar trampas y monstruos, y recuperar el objeto antes de que caiga en manos aún peores o se corrompa definitivamente. La noche cae sobre ${advLoc} cuando los héroes se preparan para la incursión.`,
+    `En ${heroLoc}, ${giver} intercepta a los héroes con una misión delicada. ${obj} ha desaparecido y las pistas apuntan a ${advLoc}, donde ${bossName} (${jefeType}) dirige a las fuerzas de ${fac.name}. Si el artefacto cae en manos equivocadas, las consecuencias podrían ser catastróficas. ${g} les pide que lo recuperen a cualquier coste. Trampas, monstruos y el propio jefe protegerán el botín. La noche se cierne sobre las ruinas cuando el grupo parte.`,
+    `La llamada llega a ${heroLoc}. ${obj} ha sido robado o perdido y ahora se encuentra en ${advLoc}, dominio de ${bossName}, un peligroso ${jefeType} de los ${fac.name}. ${g} confía en los héroes para recuperarlo antes de que sea demasiado tarde. El lugar está repleto de peligros: encuentros, trampas y la posibilidad de enfrentarse al jefe. Cada sala puede esconder la clave del éxito o la muerte.`,
+    `Mientras los héroes se recuperan en ${heroLoc}, ${giver} llega con una petición grave. ${obj} debe ser recuperado de ${advLoc}, donde ${bossName} (${jefeType}) y las fuerzas de ${fac.name} lo custodian o lo buscan. ${g} no ofrece rodeos: el artefacto no puede permanecer en manos enemigas. Los héroes deberán superar monstruos, trampas y posiblemente al propio jefe. La oscuridad de ${advLoc} espera su llegada.`
+  ];
+
+  let pool;
+  if (ruleNum === 0) pool = intros0;
+  else if ([8, 9, 10, 11].includes(ruleNum)) pool = introsRescue;
+  else if (ruleNum === 12) pool = intros12;
+  else if (ruleNum === 14) pool = intros14;
+  else if (ruleNum === 13) pool = intros13;
+  else pool = introsObj;
+
+  let intro = rnd(pool);
+  if (intro.split(/\s+/).length < 95) {
+    intro += ` La región ha sufrido demasiado bajo el yugo de las fuerzas oscuras y los habitantes claman por héroes que restauren la paz. ${g} confía en que el grupo sea capaz de completar la tarea y regresar victoriosos.`;
+  }
+  return intro;
+}
+
+function buildEpilogo(ruleNum, ctx) {
+  const { bossName, advLoc, giver, recompensa, pnj, obj } = ctx;
+  const g = capitalize(giver);
+  const recovered = obj || 'el objetivo de la misión';
+
+  const epis0 = [
+    `Tras una batalla brutal, ${bossName} cae. Su cuerpo yace sobre las losas de ${advLoc} y el eco de su última respiración se apaga. Los supervivientes de sus fuerzas huyen o se rinden. ${g} confirma la victoria y entrega la recompensa de ${recompensa} monedas de oro, junto con el reconocimiento de las autoridades. La región respira aliviada, pero los héroes saben que el mal rara vez desaparece del todo. Nuevos campeones podrían alzarse para llenar el vacío. Aun así, esta victoria se contará durante años en las posadas del Imperio.`,
+    `El combate final termina con el cuerpo de ${bossName} desplomado en ${advLoc}. El silencio que sigue es casi ensordecedor. ${g} recibe a los héroes con honor y paga la recompensa de ${recompensa} mo. Las fuerzas de la facción se dispersan, pero no todos los enemigos han muerto. Algunos juran venganza en las sombras. Aun así, la amenaza inmediata ha terminado y los bardos ya preparan canciones sobre la hazaña.`,
+    `Cuando ${bossName} cae por fin en ${advLoc}, los héroes contemplan el campo de batalla con agotamiento. ${g} confirma el éxito de la misión y entrega ${recompensa} monedas de oro. La región celebra la muerte del tirano, aunque las ruinas siguen oliendo a sangre y magia corrupta. Los héroes parten sabiendo que han ganado una batalla, no la guerra. Nuevas sombras acecharán, pero por hoy la victoria es suya.`,
+    `El último grito de ${bossName} se pierde entre las piedras de ${advLoc}. Sus tropas se desbandan o se rinden. ${g} llega para verificar la muerte del jefe y entrega la recompensa de ${recompensa} mo junto con el agradecimiento de las autoridades. La comarca respira, aunque el vacío de poder podría atraer a otros monstruos. Los héroes cargan con heridas y con la certeza de haber cumplido. El recuerdo de esta cacería perdurará.`
+  ];
+
+  const episRescue = [
+    `Con ${bossName} derrotado, los héroes liberan (o vengan) a ${pnj}. El regreso es sobrio pero victorioso. ${g} recibe a los supervivientes con gratitud y paga la recompensa de ${recompensa} mo. ${pnj} (si sobrevivió) jura no olvidar la deuda. ${capitalize(advLoc)} queda en silencio, aunque sombras residuales sugieren que no todos los enemigos han sido eliminados. Los héroes parten sabiendo que han salvado una vida y debilitado a una amenaza, pero la guerra contra las fuerzas oscuras continúa.`,
+    `Tras abatir a ${bossName} en ${advLoc}, los héroes aseguran el destino de ${pnj}. El camino de regreso es pesado, pero ${g} les espera con la recompensa de ${recompensa} mo y palabras de reconocimiento. Si ${pnj} vive, la deuda de gratitud será eterna; si no, al menos su muerte no quedó impune. Las ruinas quedan atrás, aunque el eco de la batalla aún resuena. Los héroes saben que han hecho lo correcto.`,
+    `La misión termina cuando ${bossName} cae y ${pnj} es liberado o vengado. ${g} entrega ${recompensa} monedas de oro y el alivio se nota en su rostro. ${pnj}, si sobrevive, se despide con una promesa de lealtad. ${capitalize(advLoc)} vuelve a la quietud, pero no a la paz completa. Algunos enemigos escaparon. Aun así, los héroes han cumplido y la región es un poco más segura gracias a ellos.`,
+    `Con el jefe muerto y la suerte de ${pnj} resuelta, los héroes abandonan ${advLoc}. ${g} confirma el éxito y paga la recompensa de ${recompensa} mo. El cautivo (si vive) carga con cicatrices y gratitud. El lugar queda marcado por la violencia, pero la amenaza principal ha terminado. Los héroes parten con la certeza de haber salvado una vida o al menos de haber cobrado la deuda de sangre.`
+  ];
+
+  const episElse = [
+    `Con el cuerpo de ${bossName} tendido en ${advLoc}, los héroes logran ${recovered}. Al salir, la luz del amanecer parece más brillante. ${g} recibe el artefacto con alivio y entrega la recompensa de ${recompensa} monedas de oro. La amenaza inmediata ha pasado, pero los supervivientes enemigos juran venganza en susurros. Los héroes saben que esta no será la última vez que oigan el nombre de ${bossName}. Aun así, han cumplido la misión y el Imperio es un poco más seguro gracias a ellos.`,
+    `Cuando ${bossName} cae y ${recovered} está seguro en manos de los héroes, la tensión se disipa. ${g} recibe el botín con gratitud y paga ${recompensa} mo. ${capitalize(advLoc)} queda en silencio, aunque no del todo limpio de peligros. Algunos monstruos escaparon y podrían reorganizarse. Aun así, la misión se considera un éxito y los héroes regresan con la cabeza alta.`,
+    `El combate final en ${advLoc} termina con la muerte de ${bossName} y la recuperación de ${recovered}. ${g} confirma el éxito y entrega la recompensa de ${recompensa} monedas de oro. La región celebra el regreso del artefacto, pero las sombras de la facción derrotada aún se agitan. Los héroes saben que han ganado tiempo, no una paz definitiva. El descanso, al menos, está merecido.`,
+    `Tras recuperar ${recovered} y abatir a ${bossName}, los héroes abandonan ${advLoc} bajo la primera luz del día. ${g} recibe el objeto y paga ${recompensa} mo con evidente alivio. La amenaza se ha reducido, aunque no eliminado por completo. Algunos enemigos juran no olvidar. Aun así, la misión está cumplida y el Imperio respira un poco más tranquilo gracias a este grupo.`
+  ];
+
+  let pool;
+  if (ruleNum === 0) pool = epis0;
+  else if ([8, 9, 10, 11].includes(ruleNum)) pool = episRescue;
+  else pool = episElse;
+
+  let epilogo = rnd(pool);
+  if (epilogo.split(/\s+/).length < 95) {
+    epilogo += ` El recuerdo de la batalla en ${advLoc} permanecerá en la memoria de los héroes durante mucho tiempo. Nuevas aventuras les esperan, pero por ahora el descanso es merecido.`;
+  }
+  return epilogo;
+}
+
+/* ============================================================
+   UTILIDADES
+   ============================================================ */
+function rnd(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function d6() { return 1 + Math.floor(Math.random() * 6); }
+function capitalize(s) {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function rollFaction() {
+  const r = d6();
+  if (r <= 2) return 1;
+  if (r <= 4) return 2;
+  if (r === 5) return 3;
+  return 4;
+}
+
+/* Estado de configuración de reglas extras (por defecto: todas activas, 50% una / 10% dos) */
+let extrasConfig = {
+  enabled: EXTRA_RULES.map((_, i) => true),
+  probOne: 50,
+  probTwo: 10
+};
+
+/** Probabilidades configurables: % una, % dos; el resto ninguna. Solo entre reglas habilitadas. */
+function rollExtraRules() {
+  const pool = EXTRA_RULES.filter((_, i) => extrasConfig.enabled[i]);
+  if (pool.length === 0) return [];
+
+  let p1 = Math.max(0, Number(extrasConfig.probOne) || 0);
+  let p2 = Math.max(0, Number(extrasConfig.probTwo) || 0);
+  const sum = p1 + p2;
+  if (sum > 100) {
+    p1 = (p1 / sum) * 100;
+    p2 = (p2 / sum) * 100;
+  }
+
+  const r = Math.random() * 100;
+  let count = 0;
+  if (r < p1) count = 1;
+  else if (r < p1 + p2) count = 2;
+
+  if (count === 0) return [];
+  count = Math.min(count, pool.length);
+
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+/** Aplica efectos de reglas extras sobre peligro, dado y salas */
+function applyExtraModifiers(extras, base) {
+  let { peligro, dado, salasN, salasE } = base;
+  const dieOrder = ['D4','D6', 'D8', 'D10', 'D12'];
+  let dieIdx = dieOrder.indexOf(dado);
+  if (dieIdx < 0) dieIdx = 1; // D8 por defecto
+
+  for (const ex of extras) {
+    if (ex.name.startsWith('Misión Peligrosa')) {
+      peligro += 1;
+    }
+    if (ex.name === 'Más Trampas') {
+      dieIdx = Math.max(0, dieIdx - 1);
+    }
+    if (ex.name === 'Menos Trampas') {
+      dieIdx = Math.min(dieOrder.length - 1, dieIdx + 1);
+    }
+    if (ex.name === 'Comienzo Intenso') {
+      salasN = Math.max(4, salasN - 1);
+      salasE = salasE + 1; // la sala inicial especial se suma al total de Salas Especiales
+    }
+  }
+
+  return {
+    peligro,
+    dado: dieOrder[dieIdx],
+    salasN,
+    salasE
+  };
+}
+
+/* ============================================================
+   GENERADOR PRINCIPAL
+   ============================================================ */
+function generateMission() {
+  const facKey = rollFaction();
+  const fac = FACTIONS[facKey];
+  const jefeRoll = d6();
+  const jefeType = fac.jefes[jefeRoll];
+  const bossName = rnd(BOSS_NAMES[jefeType] || ['Señor Oscuro']);
+
+  let salasN = 6 + Math.floor(Math.random() * 2); // 6-7
+  let salasE = 2 + Math.floor(Math.random() * 2); // 2-3
+  const pasillos = 3 + Math.floor(Math.random() * 2); // 3-4
+  // Fijos según petición del usuario
+  let peligro = 0;
+  let dado = 'D8';
+  const recompensa = rnd(REWARDS);
+
+  // Determinar regla: aleatoria o forzada por el selector
+  const selectedRule = document.getElementById('ruleSelect').value;
+  let ruleNum, objText;
+
+  if (selectedRule === 'random') {
+    const d1 = d6(), d2 = d6();
+    ({ text: objText, rule: ruleNum } = OBJECTIVE_TABLE[`${d1},${d2}`]);
+  } else {
+    ruleNum = parseInt(selectedRule, 10);
+    const baseTexts = {
+      0: 'Matar al Jefe Final.',
+      1: 'Recuperar un objeto almacenado en un lugar.',
+      2: 'Recuperar un objeto almacenado en un lugar mágico.',
+      3: 'Recuperar un objeto perdido en un lugar.',
+      4: 'Recuperar un objeto perdido en un lugar.',
+      5: 'Recuperar un objeto perdido en un lugar.',
+      6: 'Obtener un objeto en manos del Jefe Final.',
+      7: 'Recuperar un objeto custodiado en un lugar.',
+      8: 'Salvar a un prisionero (inventa quién).',
+      9: 'Encontrar a alguien perdido (inventa quién).',
+      10: 'Rescatar a alguien que está siendo torturado (inventa quién).',
+      11: 'Salvar a alguien que va a ser sacrificado (inventa quién).',
+      12: 'Encontrar a alguien que está explorando (inventa quién).',
+      13: 'Encontrar un objeto (inventa qué) para salvar una vida (inventa quién).',
+      14: 'Ayudar a alguien (inventa quién) en su objetivo.'
+    };
+    objText = baseTexts[ruleNum] || 'Matar al Jefe Final.';
+  }
+
+  const giver = rnd(QUEST_GIVERS);
+  const heroLoc = rnd(HERO_LOCATIONS);
+  const advLoc = rnd(ADVENTURE_LOCATIONS);
+
+  let obj = null;
+  let pnj = null;
+  let pnj2 = null;
+
+  if (ruleNum === 14) {
+    pnj = rnd(PNJS);
+    pnj2 = rnd(PNJS2);
+    objText = `Ayudar a ${pnj} ${pnj2} en su objetivo de matar al Jefe Final`;
+  } else if ([8, 9, 10, 11, 12].includes(ruleNum)) {
+    pnj = rnd(PNJS);
+    pnj2 = rnd(PNJS2);
+    if (ruleNum === 8) objText = `Salvar a un prisionero: ${pnj}.`;
+    else if (ruleNum === 9) objText = `Encontrar a ${pnj} ${pnj2}.`;
+    else if (ruleNum === 10) objText = `Rescatar a ${pnj} ${pnj2}.`;
+    else if (ruleNum === 11) objText = `Salvar a ${pnj} que va a ser sacrificado.`;
+    else if (ruleNum === 12) {
+      obj = rnd(OBJECTS);
+      pnj2 = rnd(PNJS2);
+      objText = `Encontrar a ${pnj} ${pnj2} y ayudarle a recuperar ${obj}.`;
+    }
+  } else if (ruleNum === 13) {
+    pnj = rnd(PNJS);
+    obj = rnd(OBJECTS);
+    objText = `Encontrar ${obj} para salvar la vida de ${pnj}.`;
+  } else if (ruleNum !== 0) {
+    obj = rnd(OBJECTS);
+    if (ruleNum === 2) objText = `Recuperar ${obj} almacenado en un lugar mágico.`;
+    else if (ruleNum === 1) objText = `Recuperar ${obj} almacenado en un lugar.`;
+    else if (ruleNum === 3 || ruleNum === 4 || ruleNum === 5) objText = `Recuperar ${obj} perdido en un lugar.`;
+    else if (ruleNum === 6) objText = `Recuperar ${obj} en manos del Jefe Final.`;
+    else if (ruleNum === 7) objText = `Recuperar ${obj} custodiado en un lugar.`;
+    else objText = `Recuperar ${obj}.`;
+  }
+
+  // Reglas extras (0 / 1 / 2)
+  const extras = rollExtraRules();
+  const mods = applyExtraModifiers(extras, { peligro, dado, salasN, salasE });
+  peligro = mods.peligro;
+  dado = mods.dado;
+  salasN = mods.salasN;
+  salasE = mods.salasE;
+
+  const title = buildTitle(ruleNum, { bossName, obj, pnj });
+  const ctx = { heroLoc, giver, bossName, jefeType, fac, advLoc, pnj, obj, recompensa };
+  const intro = buildIntro(ruleNum, ctx);
+  const epilogo = buildEpilogo(ruleNum, ctx);
+
+  const rulesText = ruleNum === 0
+    ? 'Ninguna regla especial adicional. El objetivo es simplemente matar al Jefe Final.'
+    : SPECIAL_RULES[ruleNum];
+
+  const atrezoPhrase = Math.random() < 0.5
+    ? 'Opcionalmente, un atrezo adicional si hay espacio.'
+    : 'Opcionalmente, dos atrezos adicionales si hay espacio.';
+
+  return {
+    title, intro, salasN, salasE, pasillos, peligro, dado, recompensa,
+    fac, bossName, jefeType, objText, rulesText, epilogo, ruleNum, extras, atrezoPhrase
+  };
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+let lastMission = null;
+let lastPlainText = '';
+
+function renderMission(m) {
+  lastMission = m;
+
+  let extrasHtml = '';
+  let extrasPlain = '';
+  if (!m.extras || m.extras.length === 0) {
+    extrasHtml = `<p style="color:var(--muted);font-size:0.88rem">Ninguna regla extra en esta misión.</p>`;
+    extrasPlain = 'Ninguna regla extra en esta misión.';
+  } else {
+    extrasHtml = m.extras.map(ex =>
+      `<div class="extra-rule"><strong>♦ ${ex.name}:</strong> ${ex.text}</div>`
+    ).join('');
+    extrasPlain = m.extras.map(ex => `♦ ${ex.name}: ${ex.text}`).join('\n\n');
+  }
+
+  const html = `
+    <div class="mission-card" id="missionCard">
+      <div class="mission-title">${m.title}</div>
+
+      <div class="section">
+        <div class="section-label">Introducción</div>
+        <p>${m.intro}</p>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Preparación</div>
+        <div class="prep-grid">
+          <div><span>Salas normales:</span> ${m.salasN}</div>
+          <div><span>Salas especiales:</span> ${m.salasE}</div>
+          <div><span>Losetas de pasillo:</span> ${m.pasillos}</div>
+          <div><span>Nivel de peligro:</span> ${m.peligro}${m.peligro >= 1 ? ' <span class="badge">ALTO</span>' : ''}</div>
+          <div><span>Dado de trampa:</span> ${m.dado}</div>
+          <div><span>Recompensa:</span> ${m.recompensa} mo</div>
+        </div>
+        <p style="margin-top:0.4rem;font-size:0.85rem;color:var(--muted)">Mazo de Atrezo: 1 Cofre + 9 cartas con atrezo al azar · 10 cartas sin atrezo</p>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Tabla de encuentros y jefe</div>
+        <p>Facción: <strong>${m.fac.name}</strong> · Errante: <strong>${m.fac.errante}</strong> · Errante Superior: <strong>${m.fac.erranteSup}</strong><br>
+        Jefe Final: <strong>${m.bossName}</strong> (<strong>${m.jefeType}</strong>). Suma +1 PC por héroe en juego +1 PC por el rango más elevado del grupo.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Objetivo de la misión</div>
+        <p>${m.objText}</p>
+        <p style="font-size:0.85rem;color:var(--muted);margin-top:0.3rem">Sala Objetivo: Contiene al Jefe Final, un cofre y un monstruo errante por héroe en juego. ${m.atrezoPhrase}</p>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Reglas especiales</div>
+        <div class="rules-box">${m.rulesText}</div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Reglas extras</div>
+        <div class="rules-box">${extrasHtml}</div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Epílogo</div>
+        <p>${m.epilogo}</p>
+      </div>
+    </div>
+  `;
+  document.getElementById('output').innerHTML = html;
+
+  lastPlainText = `MISIÓN: ${m.title}
+
+INTRODUCCIÓN
+${m.intro}
+
+PREPARACIÓN
+Salas Normales: ${m.salasN}    Salas Especiales: ${m.salasE}    Losetas de Pasillo: ${m.pasillos}
+Nivel de Peligro: ${m.peligro}    Dado de Trampa: ${m.dado}  Recompensa: ${m.recompensa} mo
+Mazo de Atrezo: 1 Cofre + 9 cartas con atrezo al azar · 10 cartas sin atrezo.
+
+TABLA DE ENCUENTROS Y JEFE
+Facción: ${m.fac.name}. Errante: ${m.fac.errante}. Errante Superior: ${m.fac.erranteSup}.
+Jefe Final: ${m.bossName} (${m.jefeType}). Suma +1 PC por héroe en juego +1 PC por el rango más elevado del grupo.
+
+OBJETIVO DE LA MISIÓN
+${m.objText}
+Sala Objetivo: Contiene al Jefe Final, un cofre y un monstruo errante por héroe en juego. ${m.atrezoPhrase}
+
+REGLAS ESPECIALES
+${m.rulesText}
+
+REGLAS EXTRAS
+${extrasPlain}
+
+EPÍLOGO
+${m.epilogo}
+`;
+}
+
+/* ============================================================
+   MODAL REGLAS EXTRAS
+   ============================================================ */
+function populateExtraCheckList() {
+  const list = document.getElementById('extraCheckList');
+  list.innerHTML = EXTRA_RULES.map((rule, i) => `
+    <label>
+      <input type="checkbox" data-idx="${i}" ${extrasConfig.enabled[i] ? 'checked' : ''}>
+      <span>${rule.name}</span>
+    </label>
+  `).join('');
+}
+
+function updateProbHint() {
+  const p1 = Math.max(0, Number(document.getElementById('probOne').value) || 0);
+  const p2 = Math.max(0, Number(document.getElementById('probTwo').value) || 0);
+  let none = 100 - p1 - p2;
+  let note = '';
+  if (p1 + p2 > 100) {
+    none = 0;
+    note = ' (se normalizará al generar)';
+  } else if (none < 0) none = 0;
+  document.getElementById('probHint').textContent =
+    `El resto (${none.toFixed(0)} %) será ninguna regla extra.${note}`;
+}
+
+function openExtrasModal() {
+  document.getElementById('probOne').value = extrasConfig.probOne;
+  document.getElementById('probTwo').value = extrasConfig.probTwo;
+  populateExtraCheckList();
+  updateProbHint();
+  document.getElementById('extrasModal').classList.add('open');
+}
+
+function closeExtrasModal() {
+  document.getElementById('extrasModal').classList.remove('open');
+}
+
+function saveExtrasConfig() {
+  const checks = document.querySelectorAll('#extraCheckList input[type="checkbox"]');
+  checks.forEach(cb => {
+    const idx = parseInt(cb.dataset.idx, 10);
+    extrasConfig.enabled[idx] = cb.checked;
+  });
+  extrasConfig.probOne = Math.max(0, Math.min(100, Number(document.getElementById('probOne').value) || 0));
+  extrasConfig.probTwo = Math.max(0, Math.min(100, Number(document.getElementById('probTwo').value) || 0));
+  closeExtrasModal();
+}
+
+/* ============================================================
+   EVENTOS (compatible iOS Safari + Android + desktop)
+   ============================================================ */
+
+/** Enlaza un handler a click de forma fiable en iOS (evita doble disparo). */
+function onTap(el, handler) {
+  if (!el) return;
+  let last = 0;
+  const run = (e) => {
+    const now = Date.now();
+    if (now - last < 400) return; // anti doble-fuego touch+click
+    last = now;
+    handler(e);
+  };
+  el.addEventListener('click', run);
+  // touchend extra en iOS por si el click se retrasa o se pierde
+  el.addEventListener('touchend', (e) => {
+    // Solo si el dedo se levantó sobre el mismo elemento
+    if (e.changedTouches && e.changedTouches.length === 1) {
+      e.preventDefault(); // evita el click sintético posterior → usamos run
+      run(e);
+    }
+  }, { passive: false });
+}
+
+onTap(document.getElementById('btnGenerate'), () => {
+  renderMission(generateMission());
+});
+
+onTap(document.getElementById('btnCopy'), async () => {
+  if (!lastPlainText) return;
+  try {
+    await navigator.clipboard.writeText(lastPlainText);
+    const btn = document.getElementById('btnCopy');
+    const old = btn.textContent;
+    btn.textContent = '✓ Copiado';
+    setTimeout(() => btn.textContent = old, 1500);
+  } catch (e) {
+    // Fallback iOS / file:// : selección + execCommand
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = lastPlainText;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) {
+        const btn = document.getElementById('btnCopy');
+        const old = btn.textContent;
+        btn.textContent = '✓ Copiado';
+        setTimeout(() => btn.textContent = old, 1500);
+      } else {
+        alert('No se pudo copiar. Selecciona el texto manualmente.');
+      }
+    } catch (e2) {
+      alert('No se pudo copiar. Selecciona el texto manualmente.');
+    }
+  }
+});
+
+onTap(document.getElementById('btnPrint'), () => {
+  if (!lastMission) return;
+  window.print();
+});
+
+onTap(document.getElementById('btnExtras'), openExtrasModal);
+onTap(document.getElementById('btnCloseExtras'), closeExtrasModal);
+onTap(document.getElementById('btnSaveExtras'), saveExtrasConfig);
+onTap(document.getElementById('btnExtrasSelectAll'), () => {
+  document.querySelectorAll('#extraCheckList input[type="checkbox"]').forEach(cb => cb.checked = true);
+});
+onTap(document.getElementById('btnExtrasSelectNone'), () => {
+  document.querySelectorAll('#extraCheckList input[type="checkbox"]').forEach(cb => cb.checked = false);
+});
+
+document.getElementById('probOne').addEventListener('input', updateProbHint);
+document.getElementById('probTwo').addEventListener('input', updateProbHint);
+document.getElementById('extrasModal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('extrasModal')) closeExtrasModal();
+});
+
+// Generar una al cargar
+renderMission(generateMission());
+</script>
+</body>
+</html>
